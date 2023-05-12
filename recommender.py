@@ -36,7 +36,8 @@ class Predictor(object):
         self.features = self._get_all_features()
 
     def _get_all_features(self):
-        sql = 'SELECT name FROM film_recommender_genre'
+        sql = 'SELECT name FROM film_recommender_genre' \
+              'UNION SELECT name FROM film_recommender_tag'
 
         features = [row[0] for row in self.database.execute(sql, ())]
         features.append('unknown')
