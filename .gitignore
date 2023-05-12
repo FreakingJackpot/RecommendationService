@@ -1,0 +1,11 @@
+/venv/
+/.idea/.gitignore
+/.idea/misc.xml
+/training_data/
+/.idea/modules.xml
+/.idea/inspectionProfiles/profiles_settings.xml
+/.idea/inspectionProfiles/Project_Default.xml
+/.idea/RecommendationService.iml
+
+/.idea/vcs.xml
+/datasets/
