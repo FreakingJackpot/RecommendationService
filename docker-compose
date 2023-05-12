@@ -1,0 +1,23 @@
+version: "3.8"
+
+
+services: 
+    api:
+        container_name: api
+        image: recommender-service
+        command: python3 -m flask run
+        ports: 
+            - 5000:5000
+
+    celery-worker:
+        image: recommender-service
+        container_name: celery-worker
+        command: celery -A app.celery worker
+
+
+    celery-beat:
+        image: recommender-service
+        container_name: celery-beat
+        command: celery -A app.celery beat
+
+
