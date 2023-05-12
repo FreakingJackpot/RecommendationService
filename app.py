@@ -1,11 +1,12 @@
 from flask import Flask, request, jsonify
 import jwt
 
-from auth.auth_middleware import token_required
 from extensions.extensions import db_connections, celery_init_app
+from auth.auth_middleware import token_required
+from auth.validators import validate_user_data, validate_username_and_password
 from models import User
 from recommender import Predictor
-from auth.validators import validate_user_data, validate_username_and_password
+from model_training import TrainingData, ModelTrainer
 
 app = Flask(__name__)
 app.config.from_pyfile('config.py')
@@ -105,7 +106,6 @@ def forbidden(e):
 
 @celery.task
 def train_model():
-    from training import TrainingData, ModelTrainer
     training_data = TrainingData(app.config)
     trainer = ModelTrainer(training_data)
     trainer.train()

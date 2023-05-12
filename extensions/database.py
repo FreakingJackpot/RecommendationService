@@ -56,11 +56,11 @@ class Database:
     def execute(self, sql, params, retries=3):
         data = None
 
-        with self.connection.cursor() as cursor:
-            cursor.execute(sql, params)
-            data = cursor.fetchall()
-
-        if data is None:
+        try:
+            with self.connection.cursor() as cursor:
+                cursor.execute(sql, params)
+                data = cursor.fetchall()
+        except psycopg2.OperationalError:
             if self.connection.closed:
                 try:
                     self.reconnect()

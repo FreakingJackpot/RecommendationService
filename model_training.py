@@ -5,7 +5,7 @@ import pandas as pd
 import sklearn.preprocessing
 import tensorflow as tf
 
-from extensions.database import db_cursor
+from extensions.extensions import db_connections
 
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.INFO)
 
@@ -60,19 +60,19 @@ class TrainingData(object):
     def __init__(self, config):
         self.checkpoints_dir = config['CHECKPOINTS_DIR']
         self.model_dir = config['MODEL_DIR']
+        self.database = db_connections.get('portal')
         self.items, self.item_feat_shape, self.users, self.train, self.test = self.prepare_training_data(config)
 
     def prepare_training_data(self, config):
         review_tuples = []
         genres_encoder = sklearn.preprocessing.MultiLabelBinarizer()
 
-        with db_cursor(config['DB_HOST'], config['DB_NAME'], config['DB_USERNAME'], config['DB_PASSWORD']) as cursor:
-            genres_by_movie_id = self._get_all_genres_by_movie_id_map(cursor)
+        features_by_movie_id = self._get_all_features_by_movie_id_map()
 
-            cursor.execute('SELECT user_id, movie_id, rating FROM film_recommender_userreview')
-            for review in cursor.fetchall():
-                genres = genres_by_movie_id[review[1]] or ['unknown', ]
-                review_tuples.append((review[0], review[1], review[2], genres))
+        data = self.database.execute('SELECT user_id, movie_id, rating FROM film_recommender_userreview', ())
+        for review in data:
+            features = features_by_movie_id[review[1]] or ['unknown', ]
+            review_tuples.append((review[0], review[1], review[2], features))
 
         data = pd.DataFrame(data=review_tuples, columns=[USER_COL, ITEM_COL, RATING_COL, ITEM_FEAT_COL])
 
@@ -87,19 +87,21 @@ class TrainingData(object):
 
         return items, item_feat_shape, users, train, test
 
-    @staticmethod
-    def _get_all_genres_by_movie_id_map(cursor):
-        genres_by_movie_id = defaultdict(list)
+    def _get_all_features_by_movie_id_map(self):
+        features_by_movie_id = defaultdict(list)
 
-        cursor.execute("""
-        SELECT mv_gr.movie_id ,genre.name FROM film_recommender_genre as genre 
-        JOIN film_recommender_movie_genres as mv_gr ON genre.id = mv_gr.genre_id
-        """)
+        data = self.database.execute("""
+            SELECT mv_gr.movie_id ,genre.name FROM film_recommender_genre as genre 
+            JOIN film_recommender_movie_genres as mv_gr ON genre.id = mv_gr.genre_id
+        UNION
+            SELECT mv_tg.movie_id ,tag.name FROM film_recommender_tag as tag 
+            JOIN film_recommender_movie_tags as mv_tg ON tag.id = mv_tg.tag_id
+        """, ())
 
-        for row in cursor.fetchall():
-            genres_by_movie_id[row[0]] = row[1]
+        for row in data:
+            features_by_movie_id[row[0]].append(row[1])
 
-        return
+        return features_by_movie_id
 
 
 class ModelTrainer(object):

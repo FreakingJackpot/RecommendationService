@@ -4,7 +4,6 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent
 
 SECRET_KEY = os.environ.get('SECRET_KEY', 'this is a secret')
-GROUP_PORTAL = os.environ.get('GROUP_PORTAL', 1)
 
 # database settings
 DATABASES = {
