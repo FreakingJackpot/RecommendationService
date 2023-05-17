@@ -6,16 +6,14 @@ from auth.auth_middleware import token_required
 from auth.validators import validate_user_data, validate_username_and_password
 from models import User
 from recommender import Predictor
-from model_training import TrainingData, ModelTrainer
+from model_training import train
 
 app = Flask(__name__)
 app.config.from_pyfile('config.py')
 
 db_connections.init_app(app)
 celery = celery_init_app(app)
-training_data = TrainingData(app.config)
-trainer = ModelTrainer(training_data)
-trainer.train()
+
 PREDICTOR = Predictor(app.config)
 
 
@@ -109,9 +107,7 @@ def forbidden(e):
 
 @celery.task
 def train_model():
-    training_data = TrainingData(app.config)
-    trainer = ModelTrainer(training_data)
-    trainer.train()
+    train(app.config)
 
 
 if __name__ == '__main__':

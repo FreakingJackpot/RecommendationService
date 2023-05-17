@@ -189,3 +189,9 @@ class ModelTrainer(object):
             tf_feat_cols=self.wide_columns + self.deep_columns,
             base_dir=self.training_data.model_dir
         )
+
+
+def train(config):
+    training_data = TrainingData(config)
+    trainer = ModelTrainer(training_data)
+    trainer.train()
