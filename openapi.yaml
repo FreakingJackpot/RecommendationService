@@ -1,0 +1,147 @@
+openapi: 3.0.3
+info:
+  title: Recommend Service - OpenAPI 3.0
+  termsOfService: http://swagger.io/terms/
+  contact:
+    email: apiteam@swagger.io
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  version: 1.0.11
+externalDocs:
+  description: Find out more about Swagger
+  url: http://swagger.io
+
+servers:
+  - url: https://0.0.0.0:5000/api/v3
+
+tags:
+  - name: pet
+    description: Everything about your Pets
+    externalDocs:
+      description: Find out more
+      url: http://swagger.io
+  - name: store
+    description: Access to Petstore orders
+    externalDocs:
+      description: Find out more about our store
+      url: http://swagger.io
+  - name: user
+    description: Operations about user
+paths:
+  /predict:
+    post:
+      tags:
+        - predictor
+      summary: predict ratings on films for user
+      operationId: predict
+      parameters:
+        - in: query
+          name: user_id
+          schema:
+            type: integer
+          required: true
+          description: Numeric ID of the user to get
+          example: 1
+          
+        - in: query
+          name: movie_ids
+          schema:
+            type: string
+          required: true
+          description: string of movie_ids
+          example: 1,2,3,4
+          
+        - in: header
+          name: Authorization
+          schema:
+            type: string
+          required: true
+          description: auth token
+          example: Token 1haba1xz
+
+      responses:
+        default:
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Predictions'
+  /users:
+    post:
+      tags:
+        - user
+      summary: Create user.
+      operationId: createUser
+      requestBody:
+        description: Created user object
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+      responses:
+        default:
+          description: successful operation
+  /users/login:
+    post:
+      tags:
+        - user
+      summary: Logs user into the system
+      description: ''
+      operationId: loginUser
+      requestBody:
+        description: Created user object
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+      
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Token'
+        '400':
+          description: Invalid username/password supplied
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        username:
+          type: string
+          example: theUser
+        password:
+          type: string
+          example: '12345'
+      xml:
+        name: user
+        
+    Token:
+      type: object
+      properties:
+        token:
+          type: string
+          example: 'akd8uc8zs'
+          
+    Predictions:
+      type: object
+      properties:
+        predictions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Prediction'
+
+    Prediction:
+      type: object
+      properties:
+        movie_id:
+          type: integer
+          example: 1
+        rating:
+          type: number
+          example: 4.0
+
+
