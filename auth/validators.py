@@ -15,7 +15,7 @@ def validate_user_data(user_data):
 
 def validate_username_and_password(username, password):
     connection = db_connections.get()
-    data = connection.execute("SELECT password FROM users WHERE username = %s", (username,))
+    data = connection.execute("SELECT password FROM portal_serviceuser WHERE username = %s", (username,))
 
     if data:
         return check_password_hash(data[0][0], password)

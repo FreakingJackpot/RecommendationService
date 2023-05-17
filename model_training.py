@@ -1,5 +1,6 @@
 import os
 from collections import defaultdict
+import pickle
 
 import pandas as pd
 import sklearn.preprocessing
@@ -60,23 +61,27 @@ class TrainingData(object):
     def __init__(self, config):
         self.checkpoints_dir = config['CHECKPOINTS_DIR']
         self.model_dir = config['MODEL_DIR']
+        self.encoder_path = config['ENCODER_PATH']
         self.database = db_connections.get('portal')
         self.items, self.item_feat_shape, self.users, self.train, self.test = self.prepare_training_data(config)
 
     def prepare_training_data(self, config):
         review_tuples = []
-        genres_encoder = sklearn.preprocessing.MultiLabelBinarizer()
+        features_encoder = sklearn.preprocessing.MultiLabelBinarizer(classes=self._get_all_features())
 
         features_by_movie_id = self._get_all_features_by_movie_id_map()
 
         data = self.database.execute('SELECT user_id, movie_id, rating FROM film_recommender_userreview', ())
         for review in data:
-            features = features_by_movie_id[review[1]] or ['unknown', ]
+            features = features_by_movie_id[review[1]]
             review_tuples.append((review[0], review[1], review[2], features))
 
         data = pd.DataFrame(data=review_tuples, columns=[USER_COL, ITEM_COL, RATING_COL, ITEM_FEAT_COL])
 
-        data[ITEM_FEAT_COL] = genres_encoder.fit_transform(data[ITEM_FEAT_COL]).tolist()
+        data[ITEM_FEAT_COL] = features_encoder.fit_transform(data[ITEM_FEAT_COL]).tolist()
+
+        with open(self.encoder_path, 'wb+') as f:
+            pickle.dump(features_encoder, f)
 
         train, test = python_random_split(data, ratio=0.75, seed=SEED)
 
@@ -86,6 +91,13 @@ class TrainingData(object):
         users = data.drop_duplicates(USER_COL)[[USER_COL]].reset_index(drop=True)
 
         return items, item_feat_shape, users, train, test
+
+    def _get_all_features(self):
+        sql = 'SELECT name FROM film_recommender_genre' \
+              ' UNION SELECT name FROM film_recommender_tag'
+
+        features = [row[0] for row in self.database.execute(sql, ())]
+        return features
 
     def _get_all_features_by_movie_id_map(self):
         features_by_movie_id = defaultdict(list)

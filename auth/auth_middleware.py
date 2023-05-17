@@ -23,7 +23,7 @@ def token_required(f):
 
             db_connection = db_connections.get()
             current_user = db_connection.execute(
-                """SELECT approved FROM users WHERE id = %s """, (data["user_id"],)
+                """SELECT approved FROM portal_serviceuser WHERE id = %s """, (data["user_id"],)
             )
 
             if not current_user:

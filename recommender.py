@@ -1,10 +1,10 @@
 import glob
 import os
+import pickle
 from collections import defaultdict
 
 import cachetools.func
 import pandas as pd
-import sklearn.preprocessing
 import tensorflow as tf
 from recommenders.utils.tf_utils import pandas_input_fn_for_saved_model
 from recommenders.utils.constants import (
@@ -23,36 +23,21 @@ class Predictor(object):
 
     def __init__(self, config):
         self.model_dir = config['MODEL_DIR']
+        self.encoder_path = config['ENCODER_PATH']
         self.database = db_connections.get('portal')
 
         self._update_model()
 
     def _update_model(self):
         list_of_files = glob.glob(self.model_dir + '/*')
-        self.latest_file = latest_file = max(list_of_files, key=os.path.getctime)
+        self.latest_file = max(list_of_files, key=os.path.getctime)
 
-        self.model = tf.saved_model.load(latest_file + '/', tags=['serve', ])
+        self.model = tf.saved_model.load(self.latest_file + '/', tags=['serve', ])
 
-        self.features = self._get_all_features()
+        with open(self.encoder_path, 'rb') as f:
+            self.features_encoder = pickle.load(f)
 
-    def _get_all_features(self):
-        sql = 'SELECT name FROM film_recommender_genre' \
-              'UNION SELECT name FROM film_recommender_tag'
-
-        features = [row[0] for row in self.database.execute(sql, ())]
-        features.append('unknown')
-        return features
-
-    def get_top_k(self, movie_ids, user_id, top_k):
-        predictions = self.predict(movie_ids, user_id)
-
-        movie_ids_with_ratings = []
-        for prediction, movie_id in zip(predictions, movie_ids):
-            movie_ids_with_ratings.append((movie_id, prediction))
-
-        movie_ids_with_ratings.sort(key=lambda x: x[1], reverse=True)
-
-        return movie_ids_with_ratings[:top_k]
+        self.features = set(self.features_encoder.classes_)
 
     def predict(self, movie_ids, user_id):
         self._check_new_weights()
@@ -69,36 +54,42 @@ class Predictor(object):
             )()["inputs"]
         )
 
-        return [float(prediction) * 2 for prediction in predictions['predictions']]
+        return [
+            {'movie_id': movie_id, 'rating': float(prediction) * 2} for movie_id, prediction in
+            zip(movie_ids, predictions['predictions'])
+        ]
 
     def _prepare_data_from_movies(self, movie_ids, user_id):
-        genres_encoder = sklearn.preprocessing.MultiLabelBinarizer(classes=self.features)
-        genres_by_movie_id = self.__get_genres_for_movies(movie_ids)
+        genres_by_movie_id = self.__get_features_for_movies(movie_ids)
 
         movies_to_predict = []
 
         for movie_id in movie_ids:
-            genres = genres_by_movie_id.get(movie_id, ['unknown', ])
+            genres = genres_by_movie_id.get(movie_id, [])
             movies_to_predict.append((user_id, movie_id, genres))
 
         data = pd.DataFrame(data=movies_to_predict, columns=[USER_COL, ITEM_COL, ITEM_FEAT_COL])
 
-        data[ITEM_FEAT_COL] = genres_encoder.fit_transform(data[ITEM_FEAT_COL]).tolist()
+        data[ITEM_FEAT_COL] = self.features_encoder.fit_transform(data[ITEM_FEAT_COL]).tolist()
         data.reset_index(drop=True, inplace=True)
 
         return data
 
-    def __get_genres_for_movies(self, movie_ids):
+    def __get_features_for_movies(self, movie_ids):
         genres_by_movie_id = defaultdict(list)
         data = self.database.execute("""
         SELECT mv_gr.movie_id ,genre.name FROM film_recommender_genre as genre 
         JOIN film_recommender_movie_genres as mv_gr ON genre.id = mv_gr.genre_id
         WHERE mv_gr.movie_id IN %s
-        """, (movie_ids,))
+        UNION 
+        SELECT mv_tg.movie_id ,tag.name FROM film_recommender_tag as tag 
+        JOIN film_recommender_movie_tags as mv_tg ON tag.id = mv_tg.tag_id
+        WHERE mv_tg.movie_id IN %s
+        """, (movie_ids, movie_ids,))
 
         for row in data:
             if row[1] in self.features:
-                genres_by_movie_id[row[0]] = row[1]
+                genres_by_movie_id[row[0]].append(row[1])
 
         return genres_by_movie_id
 

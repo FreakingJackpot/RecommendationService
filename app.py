@@ -13,6 +13,9 @@ app.config.from_pyfile('config.py')
 
 db_connections.init_app(app)
 celery = celery_init_app(app)
+training_data = TrainingData(app.config)
+trainer = ModelTrainer(training_data)
+trainer.train()
 PREDICTOR = Predictor(app.config)
 
 

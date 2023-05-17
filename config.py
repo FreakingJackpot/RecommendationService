@@ -16,7 +16,7 @@ DATABASES = {
     },
     'service':
         {
-            'name': os.environ.get('DB_NAME', 'recommend_service'),
+            'name': os.environ.get('DB_NAME', 'postgres'),
             'user': os.environ.get('DB_USERNAME', 'postgres'),
             'password': os.environ.get('DB_PASSWORD', 'postgres'),
             'host': os.environ.get('DB_HOST', '127.0.0.1'),
@@ -42,3 +42,4 @@ CELERY = dict(
 # recommender settings
 CHECKPOINTS_DIR = os.path.join(BASE_DIR, 'training_data', 'checkpoints')
 MODEL_DIR = os.path.join(BASE_DIR, 'training_data', 'outputs', 'model')
+ENCODER_PATH = os.path.join(BASE_DIR, 'training_data', 'outputs', 'encoder.pkl')
