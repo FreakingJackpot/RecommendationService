@@ -96,7 +96,7 @@ class TrainingData(object):
         sql = 'SELECT name FROM film_recommender_genre' \
               ' UNION SELECT name FROM film_recommender_tag'
 
-        features = [row[0] for row in self.database.execute(sql, ())]
+        features = [row[0] for row in self.database.execute(sql, ()) or []]
         return features
 
     def _get_all_features_by_movie_id_map(self):

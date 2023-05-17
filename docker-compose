@@ -9,15 +9,26 @@ services:
         ports: 
             - 5000:5000
 
+    redis:
+        image: redis:alpine
+        ports:
+            - 6379:6379
+
     celery-worker:
         image: recommender-service
         container_name: celery-worker
+        depends_on:
+            - redis
         command: celery -A app.celery worker
 
 
     celery-beat:
         image: recommender-service
         container_name: celery-beat
+        depends_on:
+            - redis
         command: celery -A app.celery beat
+
+
 
 

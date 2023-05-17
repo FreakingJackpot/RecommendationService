@@ -26,8 +26,8 @@ DATABASES = {
 
 # celery settings
 CELERY = dict(
-    broker_url="pyamqp://localhost",
-    result_backend="rpc://localhost",
+    broker_url="redis://localhost:6379",
+    result_backend="redis://localhost:6379",
     timezone="UTC",
     task_ignore_result=True,
     beat_schedule={
