@@ -24,10 +24,11 @@ DATABASES = {
         }
 }
 
+REDIS_URL = 'redis://localhost:6379'
 # celery settings
 CELERY = dict(
-    broker_url="redis://localhost:6379",
-    result_backend="redis://localhost:6379",
+    broker_url=REDIS_URL,
+    result_backend=REDIS_URL,
     timezone="UTC",
     task_ignore_result=True,
     beat_schedule={

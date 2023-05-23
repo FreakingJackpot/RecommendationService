@@ -23,7 +23,6 @@ class DatabaseConnections:
     def get(self, name='service'):
         return self.connections[name]
 
-
 class Database:
     def __init__(self, host, name, user, password, life_time):
         self.host = host
@@ -83,17 +82,3 @@ class Database:
         return result
 
 
-@contextmanager
-def db_cursor(host, database, user, password):
-    conn = psycopg2.connect(
-        host=host,
-        database=database,
-        user=user,
-        password=password
-    )
-    cursor = conn.cursor()
-
-    yield cursor
-
-    cursor.close()
-    conn.close()

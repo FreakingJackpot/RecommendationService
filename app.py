@@ -1,5 +1,7 @@
 from flask import Flask, request, jsonify
 import jwt
+import yaml
+import redis
 
 from extensions.extensions import db_connections, celery_init_app
 from auth.auth_middleware import token_required
@@ -17,7 +19,7 @@ celery = celery_init_app(app)
 PREDICTOR = Predictor(app.config)
 
 
-@app.route('/predict/', methods=('GET',))
+@app.route('/predictor/', methods=('GET',))
 @token_required
 def predict():
     args = request.args
@@ -98,6 +100,14 @@ def login():
 
     except Exception as e:
         return {"error": "Something went wrong", "message": str(e)}, 500
+
+
+@app.route("/swagger/", methods=["GET"])
+def swagger():
+    with open('openapi.yml', 'r') as file:
+        openapi = yaml.safe_load(file)
+
+    return openapi
 
 
 @app.errorhandler(404)

@@ -26,7 +26,7 @@ RANDOM_SEED = SEED  # Set seed for deterministic result
 
 #### Hyperparameters
 MODEL_TYPE = "wide_deep"
-STEPS = 50000  # Number of batches to train
+STEPS = 20000  # Number of batches to train
 BATCH_SIZE = 32
 
 # Wide (linear) model hyperparameters
@@ -43,10 +43,10 @@ DNN_L1_REG = 0.0  # Regularization rate for FtrlOptimizer
 DNN_L2_REG = 0.0
 DNN_MOMENTUM = 0.0  # Momentum for MomentumOptimizer or RMSPropOptimizer
 
-DNN_HIDDEN_LAYER_1 = 0  # Set 0 to not use this layer
-DNN_HIDDEN_LAYER_2 = 64  # Set 0 to not use this layer
-DNN_HIDDEN_LAYER_3 = 128  # Set 0 to not use this layer
-DNN_HIDDEN_LAYER_4 = 512  # Note, at least one layer should have nodes.
+DNN_HIDDEN_LAYER_1 = 0
+DNN_HIDDEN_LAYER_2 = 64
+DNN_HIDDEN_LAYER_3 = 128
+DNN_HIDDEN_LAYER_4 = 512
 DNN_HIDDEN_UNITS = [h for h in [DNN_HIDDEN_LAYER_1, DNN_HIDDEN_LAYER_2, DNN_HIDDEN_LAYER_3, DNN_HIDDEN_LAYER_4] if
                     h > 0]
 DNN_USER_DIM = 32  # User embedding feature dimension
@@ -63,11 +63,13 @@ class TrainingData(object):
         self.model_dir = config['MODEL_DIR']
         self.encoder_path = config['ENCODER_PATH']
         self.database = db_connections.get('portal')
-        self.items, self.item_feat_shape, self.users, self.train, self.test = self.prepare_training_data(config)
+        self.items, self.item_feat_shape, self.users, self.train, self.test = self.prepare_training_data()
 
-    def prepare_training_data(self, config):
+    def prepare_training_data(self):
         review_tuples = []
         features_encoder = sklearn.preprocessing.MultiLabelBinarizer(classes=self._get_all_features())
+        with open(self.encoder_path, 'wb+') as f:
+            pickle.dump(features_encoder, f)
 
         features_by_movie_id = self._get_all_features_by_movie_id_map()
 
@@ -80,14 +82,12 @@ class TrainingData(object):
 
         data[ITEM_FEAT_COL] = features_encoder.fit_transform(data[ITEM_FEAT_COL]).tolist()
 
-        with open(self.encoder_path, 'wb+') as f:
-            pickle.dump(features_encoder, f)
 
         train, test = python_random_split(data, ratio=0.75, seed=SEED)
 
         items = data.drop_duplicates(ITEM_COL)[[ITEM_COL, ITEM_FEAT_COL]].reset_index(drop=True)
         item_feat_shape = len(items[ITEM_FEAT_COL][0])
-        # Unique users in the dataset
+
         users = data.drop_duplicates(USER_COL)[[USER_COL]].reset_index(drop=True)
 
         return items, item_feat_shape, users, train, test
