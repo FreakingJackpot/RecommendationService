@@ -59,12 +59,13 @@ class Database:
             with self.connection.cursor() as cursor:
                 cursor.execute(sql, params)
                 data = cursor.fetchall()
-        except psycopg2.OperationalError:
+        except psycopg2.OperationalError as error:
+            print(error)
             if self.connection.closed:
                 try:
                     self.reconnect()
-                except psycopg2.OperationalError:
-                    pass
+                except psycopg2.OperationalError as error:
+                    print(error)
 
             if retries:
                 self.execute(sql, params, retries - 1)

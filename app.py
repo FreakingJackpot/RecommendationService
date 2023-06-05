@@ -1,7 +1,6 @@
 from flask import Flask, request, jsonify
 import jwt
 import yaml
-import redis
 
 from extensions.extensions import db_connections, celery_init_app
 from auth.auth_middleware import token_required

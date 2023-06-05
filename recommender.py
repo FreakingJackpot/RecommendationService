@@ -20,6 +20,8 @@ tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.INFO)
 
 
 class PredictDataPreparer(object):
+    cache_key_template = 'feats_{}'
+
     def __init__(self, database, encoder_path, redis_url):
         self.database = database
         self.cache = redis.Redis.from_url(redis_url)
@@ -55,41 +57,43 @@ class PredictDataPreparer(object):
         movies_keys = [self.cache_key_template.format(id_) for id_ in movie_ids]
         ids_to_update = []
         for key in movies_keys:
-            features = self.cache.lrange(key)
+            features = self.cache.lrange(key, 0, -1)
             id_ = int(key.split('_')[1])
             if features:
                 genres_by_movie_id[id_] = features
             else:
                 ids_to_update.append(id_)
 
-        data = self.database.execute("""
-        SELECT mv_gr.movie_id ,genre.name FROM film_recommender_genre as genre 
-        JOIN film_recommender_movie_genres as mv_gr ON genre.id = mv_gr.genre_id
-        WHERE mv_gr.movie_id IN %s
-        UNION 
-        SELECT mv_tg.movie_id ,tag.name FROM film_recommender_tag as tag 
-        JOIN film_recommender_movie_tags as mv_tg ON tag.id = mv_tg.tag_id
-        WHERE mv_tg.movie_id IN %s
-        """, (ids_to_update, ids_to_update,))
+        if ids_to_update:
+            data = self.database.execute("""
+            SELECT mv_gr.movie_id ,tr.name FROM film_recommender_genre as genre 
+            JOIN film_recommender_movie_genres as mv_gr ON genre.id = mv_gr.genre_id
+            JOIN film_recommender_genre_translation as tr ON tr.master_id = genre.id AND tr.language_code='en-us'
+            WHERE mv_gr.movie_id IN %s
+            UNION 
+            SELECT mv_tg.movie_id ,tr.name FROM film_recommender_tag as tag 
+            JOIN film_recommender_movie_tags as mv_tg ON tag.id = mv_tg.tag_id
+            JOIN film_recommender_tag_translation as tr ON tr.master_id = tag.id AND tr.language_code='en-us'
+            WHERE mv_tg.movie_id IN %s
+            """, (tuple(ids_to_update), tuple(ids_to_update)))
 
-        for row in data:
-            if row[1] in self.features:
-                genres_by_movie_id[row[0]].append(row[1])
+            for row in data:
+                if row[1] in self.features:
+                    genres_by_movie_id[row[0]].append(row[1])
 
-        for id_ in ids_to_update:
-            self.cache.lpush(self.cache_key_template.format(id_), *genres_by_movie_id[id_])
+            for id_ in ids_to_update:
+                self.cache.lpush(self.cache_key_template.format(id_), *genres_by_movie_id[id_])
 
         return genres_by_movie_id
 
 
 class Predictor(object):
     update_model_rate = 70  # minutes
-    cache_key_template = 'feats_{}'
 
     def __init__(self, config):
         self.model_dir = config['MODEL_DIR']
-        self.encoder_path = config['ENCODER_PATH']
-        self.data_preparer = PredictDataPreparer(db_connections.get('portal'), config['REDIS_URL'])
+        self.data_preparer = PredictDataPreparer(db_connections.get('portal'), config['ENCODER_PATH'],
+                                                 config['REDIS_URL'])
 
         self._update_model()
 
@@ -117,7 +121,9 @@ class Predictor(object):
         )
 
         return [
-            {'movie_id': movie_id, 'rating': float(prediction) * 2} for movie_id, prediction in
+            {'movie_id': movie_id, 'rating': predict if (predict := float(prediction)) <= 5 else 5.0} for
+            movie_id, prediction
+            in
             zip(movie_ids, predictions['predictions'])
         ]
 

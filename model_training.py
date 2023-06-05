@@ -103,11 +103,13 @@ class TrainingData(object):
         features_by_movie_id = defaultdict(list)
 
         data = self.database.execute("""
-            SELECT mv_gr.movie_id ,genre.name FROM film_recommender_genre as genre 
+            SELECT mv_gr.movie_id ,tr.name FROM film_recommender_genre as genre 
             JOIN film_recommender_movie_genres as mv_gr ON genre.id = mv_gr.genre_id
+            JOIN film_recommender_tag_translation as tr ON tr.master_id = genre.id AND tr.language_code='en-us'
         UNION
-            SELECT mv_tg.movie_id ,tag.name FROM film_recommender_tag as tag 
+            SELECT mv_tg.movie_id ,tr.name FROM film_recommender_tag as tag 
             JOIN film_recommender_movie_tags as mv_tg ON tag.id = mv_tg.tag_id
+            JOIN film_recommender_tag_translation as tr ON tr.master_id = tag.id AND tr.language_code='en-us'
         """, ())
 
         for row in data:
