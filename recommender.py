@@ -24,7 +24,7 @@ class PredictDataPreparer(object):
 
     def __init__(self, database, encoder_path, redis_url):
         self.database = database
-        self.cache = redis.Redis.from_url(redis_url)
+        self.cache = redis.Redis.from_url(redis_url, decode_responses=True)
         self.encoder_path = encoder_path
         self.features_encoder, self.features = None, None
         self.update()
