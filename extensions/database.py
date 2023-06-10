@@ -23,6 +23,7 @@ class DatabaseConnections:
     def get(self, name='service'):
         return self.connections[name]
 
+
 class Database:
     def __init__(self, host, name, user, password, life_time):
         self.host = host
@@ -55,20 +56,22 @@ class Database:
     def execute(self, sql, params, retries=3):
         data = None
 
-        try:
-            with self.connection.cursor() as cursor:
+        with self.connection.cursor() as cursor:
+            try:
                 cursor.execute(sql, params)
                 data = cursor.fetchall()
-        except psycopg2.OperationalError as error:
-            print(error)
-            if self.connection.closed:
-                try:
-                    self.reconnect()
-                except psycopg2.OperationalError as error:
-                    print(error)
+            except psycopg2.OperationalError as error:
+                print(error)
+                cursor.rollback()
 
-            if retries:
-                self.execute(sql, params, retries - 1)
+                if self.connection.closed:
+                    try:
+                        self.reconnect()
+                    except psycopg2.OperationalError as error:
+                        print(error)
+
+        if data is not None and retries:
+            data = self.execute(sql, params, retries - 1)
 
         return data
 
@@ -81,5 +84,3 @@ class Database:
             result = True
 
         return result
-
-

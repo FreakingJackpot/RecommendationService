@@ -17,7 +17,6 @@ celery = celery_init_app(app)
 
 PREDICTOR = Predictor(app.config)
 
-
 @app.route('/predictor/', methods=('GET',))
 @token_required
 def predict():

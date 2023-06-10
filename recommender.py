@@ -37,11 +37,12 @@ class PredictDataPreparer(object):
 
     def prepare_data_from_user_and_movies(self, movie_ids, user_id):
         features_by_movie_id = self.__get_features_for_movies(movie_ids)
+        user_features = self.__get_user_features(user_id)
 
         movies_to_predict = []
 
         for movie_id in movie_ids:
-            features = features_by_movie_id.get(movie_id, [])
+            features = features_by_movie_id.get(movie_id, []) + user_features
             movies_to_predict.append((user_id, movie_id, features))
 
         data = pd.DataFrame(data=movies_to_predict, columns=[USER_COL, ITEM_COL, ITEM_FEAT_COL])
@@ -52,7 +53,7 @@ class PredictDataPreparer(object):
         return data
 
     def __get_features_for_movies(self, movie_ids):
-        genres_by_movie_id = defaultdict(list)
+        features_by_movie_id = defaultdict(list)
 
         movies_keys = [self.cache_key_template.format(id_) for id_ in movie_ids]
         ids_to_update = []
@@ -60,31 +61,39 @@ class PredictDataPreparer(object):
             features = self.cache.lrange(key, 0, -1)
             id_ = int(key.split('_')[1])
             if features:
-                genres_by_movie_id[id_] = features
+                features_by_movie_id[id_] = features
             else:
                 ids_to_update.append(id_)
 
         if ids_to_update:
             data = self.database.execute("""
-            SELECT mv_gr.movie_id ,tr.name FROM film_recommender_genre as genre 
-            JOIN film_recommender_movie_genres as mv_gr ON genre.id = mv_gr.genre_id
-            JOIN film_recommender_genre_translation as tr ON tr.master_id = genre.id AND tr.language_code='en-us'
+            SELECT mv_gr.movie_id ,tr.name FROM film_recommender_movie_genres as mv_gr
+            JOIN film_recommender_genre_translation as tr ON tr.master_id = mv_gr.genre_id AND tr.language_code='en-us'
             WHERE mv_gr.movie_id IN %s
             UNION 
-            SELECT mv_tg.movie_id ,tr.name FROM film_recommender_tag as tag 
+            SELECT mv_tg.movie_id ,tag.name FROM film_recommender_tag as tag 
             JOIN film_recommender_movie_tags as mv_tg ON tag.id = mv_tg.tag_id
-            JOIN film_recommender_tag_translation as tr ON tr.master_id = tag.id AND tr.language_code='en-us'
             WHERE mv_tg.movie_id IN %s
             """, (tuple(ids_to_update), tuple(ids_to_update)))
 
             for row in data:
                 if row[1] in self.features:
-                    genres_by_movie_id[row[0]].append(row[1])
+                    features_by_movie_id[row[0]].append(row[1])
 
             for id_ in ids_to_update:
-                self.cache.lpush(self.cache_key_template.format(id_), *genres_by_movie_id[id_])
+                features = features_by_movie_id[id_]
+                if features:
+                    self.cache.lpush(self.cache_key_template.format(id_), *features)
 
-        return genres_by_movie_id
+        return features_by_movie_id
+
+    def __get_user_features(self, user_id):
+        sql = 'SELECT cu.age, cu.gender,cu.country,ot.name FROM account_customuser cu ' \
+              'JOIN account_occupation oc ON  oc.id = cu.occupation_id ' \
+              'JOIN account_occupation_translation ot ON ot.master_id = oc.id AND ot.language_code=\'en-us\' ' \
+              'WHERE cu.id = %s '
+        features = [feature for feature in self.database.execute(sql, (user_id,))[0] if feature]
+        return features
 
 
 class Predictor(object):
